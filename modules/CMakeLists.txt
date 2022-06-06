@@ -372,6 +372,12 @@ if(NE10_BUILD_STATIC OR ANDROID_PLATFORM OR IOS_DEMO)
         ${NE10_NEON_SRCS}
         ${NE10_INIT_SRCS}
     )
+
+    target_include_directories(NE10 PUBLIC
+        ${PROJECT_SOURCE_DIR}/inc
+        ${PROJECT_SOURCE_DIR}/common
+    )
+
     set_target_properties(NE10 PROPERTIES
         CLEAN_DIRECT_OUTPUT 1
         VERSION ${NE10_VERSION}

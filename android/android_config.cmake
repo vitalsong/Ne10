@@ -48,6 +48,10 @@ if(ANDROID_PLATFORM)
     set(ANDROID_DEMO ON)
 endif()
 
+if("${CMAKE_HOST_SYSTEM}" MATCHES "Darwin")
+    set(IOS_PLATFORM ON)
+endif()
+
 if(ANDROID_DEMO)
     add_definitions(-DNE10_ANDROID_DEMO)
 endif()

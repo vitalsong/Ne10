@@ -113,7 +113,7 @@ if(ANDROID_PLATFORM)
     endif()
 
     #TODO: Fine tune pic and pie flag for executable, share library and static library.
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --sysroot=${NDK_SYSROOT_PATH} -pie")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --sysroot=${NDK_SYSROOT_PATH}")
     string(APPEND CMAKE_C_FLAGS " -isysroot ${NDK_ISYSROOT_PATH}")
     add_definitions(-D__ANDROID_API__=${ANDROID_API_LEVEL})
 

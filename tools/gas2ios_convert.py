@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 '''
   Copyright 2013-16 ARM Limited and Contributors.
   All rights reserved.
@@ -299,7 +299,7 @@ def main ():
                       'NE10_fft_int16.neon.s',
                       'NE10_fft_int32.neon.s']
     if len(sys.argv) < 3:
-        print "Usage: convert.py <input file> <output file>"
+        print("Usage: convert.py <input file> <output file>")
         return
     else:
         infilename = sys.argv[1]
