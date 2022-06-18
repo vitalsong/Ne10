@@ -30,6 +30,8 @@ cmake_policy(SET CMP0077 NEW)
 
 project(NE10 C CXX ASM)
 
+include(cmake/CheckConfig.cmake)
+
 option(NE10_BUILD_SHARED "Build NE10 shared libraries" OFF)
 option(NE10_BUILD_STATIC "Build NE10 static libraries" ON)
 option(NE10_BUILD_EXAMPLES "Build NE10 examples" OFF)
