@@ -31,6 +31,7 @@ include(../cmake/FunctionSwitch.cmake)
 if(NE10_ARM_HARD_FLOAT)
     add_definitions(-DNE10_ENABLE_HF)
 endif()
+
 # Define files.
 set(NE10_INIT_SRCS ${PROJECT_SOURCE_DIR}/modules/NE10_init.c)
 set(NE10_C_SRCS )
@@ -43,39 +44,38 @@ function(set_file_to_c files)
     "-x assembler-with-cpp -mfpu=neon -Wa,-I${PROJECT_SOURCE_DIR}/inc -Wa,-I${PROJECT_SOURCE_DIR}/common -Wa,-I${PROJECT_SOURCE_DIR}/modules/math" )
   foreach(file ${${files}})
     set_property (SOURCE ${file} PROPERTY LANGUAGE C)
-    set_source_files_properties(
-      ${file} PROPERTIES COMPILE_FLAGS
-      ${FLAGS}
-      )
+    set_source_files_properties(${file} PROPERTIES COMPILE_FLAGS ${FLAGS})
   endforeach(file)
 endfunction()
 
-if(IOS_PLATFORM)
-  # because ios's ARM assembler(Clang) doesn't support GNU as(GAS)'s assembly
-  # well, we convert all GAS assembly to Clang assembly here.
-  function(convert_gas gas_files ios_files)
+# because ios's ARM assembler(Clang) doesn't support GNU as(GAS)'s assembly
+# well, we convert all GAS assembly to Clang assembly here.
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
+    find_package(Python COMPONENTS Interpreter REQUIRED)
+endif()
+
+function(convert_gas gas_files ios_files)
     #message(STATUS "in convert_gas function:${${gas_files}}")
     foreach(gas_file ${${gas_files}})
-      string(REGEX REPLACE
-        ".*\(NE10_.*\).neon.s"
-        "${NE10_BINARY_DIR}/modules/CMakeFiles/NE10.dir/\\1_ios.neon.s"
-        ios_file
-        ${gas_file})
-      list(APPEND ios_files_tmp ${ios_file})
+        string(REGEX REPLACE ".*\(NE10_.*\).neon.s"
+            "${NE10_BINARY_DIR}/modules/CMakeFiles/NE10.dir/\\1_ios.neon.s"
+            ios_file
+            ${gas_file})
+            list(APPEND ios_files_tmp ${ios_file}
+        )
 
-      #call a script to convert each assembly file in GAS to Clang
-      add_custom_command(
-        OUTPUT ${ios_file}
-        COMMAND ${NE10_SOURCE_DIR}/tools/gas2ios_convert.py
-        ${gas_file} ${ios_file}
-        DEPENDS ${gas_file}
+        #call a script to convert each assembly file in GAS to Clang
+        add_custom_command(OUTPUT ${ios_file}
+            COMMAND ${Python_EXECUTABLE} ${NE10_SOURCE_DIR}/tools/gas2ios_convert.py
+            ${gas_file} ${ios_file}
+            DEPENDS ${gas_file}
         )
     endforeach()
 
     #return value by setting the variable to PARENT_SCOPE
     set(${ios_files} ${ios_files_tmp} PARENT_SCOPE)
-  endfunction()
-endif(IOS_PLATFORM)
+endfunction()
 
 if(NE10_ENABLE_MATH)
     #enable NE10_init_math
@@ -147,13 +147,14 @@ if(NE10_ENABLE_MATH)
         ${PROJECT_SOURCE_DIR}/modules/math/NE10_transmat.neon.s
         ${PROJECT_SOURCE_DIR}/modules/math/NE10_identitymat.neon.s
     )
-if(IOS_PLATFORM)
-    convert_gas(NE10_MATH_NEON_SRCS NE10_MATH_IOS_NEON_SRCS)
-    #message(STATUS "convert_gas:${NE10_MATH_IOS_NEON_SRCS}")
-    set_file_to_c(NE10_MATH_IOS_NEON_SRCS)
-else(IOS_PLATFORM)
-    set_file_to_c(NE10_MATH_NEON_SRCS)
-endif(IOS_PLATFORM)
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
+        convert_gas(NE10_MATH_NEON_SRCS NE10_MATH_IOS_NEON_SRCS)
+        #message(STATUS "convert_gas:${NE10_MATH_IOS_NEON_SRCS}")
+        set_file_to_c(NE10_MATH_IOS_NEON_SRCS)
+    else()
+        set_file_to_c(NE10_MATH_NEON_SRCS)
+    endif()
 
     # Add math init files.
     set(NE10_MATH_INIT_SRCS
@@ -164,11 +165,12 @@ endif(IOS_PLATFORM)
     set(NE10_INIT_SRCS ${NE10_INIT_SRCS} ${NE10_MATH_INIT_SRCS})
     set(NE10_C_SRCS ${NE10_C_SRCS} ${NE10_MATH_C_SRCS})
     set(NE10_INTRINSIC_SRCS ${NE10_INTRINSIC_SRCS} ${NE10_MATH_INTRINSIC_SRCS})
-    if(IOS_PLATFORM)
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
         set(NE10_NEON_SRCS ${NE10_NEON_SRCS} ${NE10_MATH_IOS_NEON_SRCS})
-    else(IOS_PLATFORM)
+    else()
         set(NE10_NEON_SRCS ${NE10_NEON_SRCS} ${NE10_MATH_NEON_SRCS})
-    endif(IOS_PLATFORM)
+    endif()
 
 endif()
 
@@ -196,8 +198,7 @@ if(NE10_ENABLE_DSP)
     )
 
     if("${NE10_TARGET_ARCH}" STREQUAL "armv7")
-        if(IOS_PLATFORM)
-        else()
+        if(NOT IOS_PLATFORM)
             # Add dsp NEON files.
             set(NE10_DSP_NEON_SRCS
                 ${NE10_DSP_NEON_SRCS}
@@ -244,11 +245,12 @@ if(NE10_ENABLE_DSP)
         endforeach(intrinsic_file)
     endif()
 
-if(IOS_PLATFORM)
-    set_file_to_c(NE10_DSP_NEON_SRCS)
-else(IOS_PLATFORM)
-    set_file_to_c(NE10_DSP_NEON_SRCS)
-endif(IOS_PLATFORM)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
+        set_file_to_c(NE10_DSP_NEON_SRCS)
+    else()
+        set_file_to_c(NE10_DSP_NEON_SRCS)
+    endif()
+
     # Add dsp init files.
     set(NE10_DSP_INIT_SRCS
         ${PROJECT_SOURCE_DIR}/modules/dsp/NE10_init_dsp.c
@@ -257,11 +259,12 @@ endif(IOS_PLATFORM)
     set(NE10_INIT_SRCS ${NE10_INIT_SRCS} ${NE10_DSP_INIT_SRCS})
     set(NE10_C_SRCS ${NE10_C_SRCS} ${NE10_DSP_C_SRCS})
     set(NE10_INTRINSIC_SRCS ${NE10_INTRINSIC_SRCS} ${NE10_DSP_INTRINSIC_SRCS})
-    if(IOS_PLATFORM)
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
       set(NE10_NEON_SRCS ${NE10_NEON_SRCS} ${NE10_DSP_IOS_NEON_SRCS})
-    else(IOS_PLATFORM)
+    else()
       set(NE10_NEON_SRCS ${NE10_NEON_SRCS} ${NE10_DSP_NEON_SRCS})
-    endif(IOS_PLATFORM)
+    endif()
 endif()
 
 if(NE10_ENABLE_IMGPROC)
@@ -297,21 +300,24 @@ if(NE10_ENABLE_IMGPROC)
         ${PROJECT_SOURCE_DIR}/modules/imgproc/NE10_init_imgproc.c
     )
 
-if(IOS_PLATFORM)
-    convert_gas(NE10_IMGPROC_NEON_SRCS NE10_IMGPROC_IOS_NEON_SRCS)
-    set_file_to_c(NE10_IMGPROC_IOS_NEON_SRCS)
-else(IOS_PLATFORM)
-    set_file_to_c(NE10_IMGPROC_NEON_SRCS)
-endif(IOS_PLATFORM)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
+        convert_gas(NE10_IMGPROC_NEON_SRCS NE10_IMGPROC_IOS_NEON_SRCS)
+        set_file_to_c(NE10_IMGPROC_IOS_NEON_SRCS)
+    else()
+        set_file_to_c(NE10_IMGPROC_NEON_SRCS)
+    endif()
+
     # Add image processing files
     set(NE10_INIT_SRCS ${NE10_INIT_SRCS} ${NE10_IMGPROC_INIT_SRCS})
     set(NE10_C_SRCS ${NE10_C_SRCS} ${NE10_IMGPROC_C_SRCS})
     set(NE10_INTRINSIC_SRCS ${NE10_INTRINSIC_SRCS} ${NE10_IMGPROC_INTRINSIC_SRCS})
-    if(IOS_PLATFORM)
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
       set(NE10_NEON_SRCS ${NE10_NEON_SRCS} ${NE10_IMGPROC_IOS_NEON_SRCS})
-    else(IOS_PLATFORM)
+    else()
       set(NE10_NEON_SRCS ${NE10_NEON_SRCS} ${NE10_IMGPROC_NEON_SRCS})
-    endif(IOS_PLATFORM)
+    endif()
+
 endif(NE10_ENABLE_IMGPROC)
 
 if(NE10_ENABLE_PHYSICS)
@@ -343,21 +349,22 @@ if(NE10_ENABLE_PHYSICS)
         ${PROJECT_SOURCE_DIR}/modules/physics/NE10_init_physics.c
     )
 
-if(IOS_PLATFORM)
-    convert_gas(NE10_PHYSICS_NEON_SRCS NE10_PHYSICS_IOS_NEON_SRCS)
-    set_file_to_c(NE10_PHYSICS_IOS_NEON_SRCS)
-else(IOS_PLATFORM)
-    set_file_to_c(NE10_PHYSICS_NEON_SRCS)
-endif(IOS_PLATFORM)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
+        convert_gas(NE10_PHYSICS_NEON_SRCS NE10_PHYSICS_IOS_NEON_SRCS)
+        set_file_to_c(NE10_PHYSICS_IOS_NEON_SRCS)
+    else()
+        set_file_to_c(NE10_PHYSICS_NEON_SRCS)
+    endif()
+
     # Add physics files
     set(NE10_INIT_SRCS ${NE10_INIT_SRCS} ${NE10_PHYSICS_INIT_SRCS})
     set(NE10_C_SRCS ${NE10_C_SRCS} ${NE10_PHYSICS_C_SRCS})
     set(NE10_INTRINSIC_SRCS ${NE10_INTRINSIC_SRCS} ${NE10_PHYSICS_INTRINSIC_SRCS})
-    if(IOS_PLATFORM)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
       set(NE10_NEON_SRCS ${NE10_NEON_SRCS} ${NE10_PHYSICS_IOS_NEON_SRCS})
-    else(IOS_PLATFORM)
+    else()
       set(NE10_NEON_SRCS ${NE10_NEON_SRCS} ${NE10_PHYSICS_NEON_SRCS})
-    endif(IOS_PLATFORM)
+    endif()
 endif(NE10_ENABLE_PHYSICS)
 
 include_directories (
@@ -372,7 +379,7 @@ if(NE10_BUILD_STATIC OR ANDROID_PLATFORM OR IOS_DEMO)
         ${NE10_NEON_SRCS}
         ${NE10_INIT_SRCS}
     )
-
+    
     target_include_directories(NE10 PUBLIC
         ${PROJECT_SOURCE_DIR}/inc
         ${PROJECT_SOURCE_DIR}/common

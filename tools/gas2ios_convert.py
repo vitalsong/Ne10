@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 '''
   Copyright 2013-16 ARM Limited and Contributors.
   All rights reserved.

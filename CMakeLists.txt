@@ -24,13 +24,17 @@
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.1)
+
+cmake_policy(SET CMP0077 NEW)
 
 project(NE10 C CXX ASM)
 
 option(NE10_BUILD_SHARED "Build NE10 shared libraries" OFF)
 option(NE10_BUILD_STATIC "Build NE10 static libraries" ON)
-option(NE10_BUILD_EXAMPLES "Build NE10 examples" ON)
+option(NE10_BUILD_EXAMPLES "Build NE10 examples" OFF)
+
+set(IOS_PLATFORM ${IOS})
 
 #hard float abi
 option(NE10_ARM_HARD_FLOAT "Build NE10 for hard float abi" ON)
@@ -54,7 +58,7 @@ if((NOT ANDROID_PLATFORM) AND (NOT GNULINUX_PLATFORM) AND (NOT IOS_PLATFORM))
 endif()
 
 if(DEFINED NE10_ANDROID_TARGET_ARCH)
-    if(${NE10_ANDROID_TARGET_ARCH} STREQUAL "armv7")
+    if("${NE10_ANDROID_TARGET_ARCH}" STREQUAL "armv7")
         set(NE10_TARGET_ARCH "armv7")
     else()
         set(NE10_TARGET_ARCH "aarch64")
@@ -65,7 +69,7 @@ if(NOT DEFINED NE10_LINUX_TARGET_ARCH AND DEFINED ENV{NE10_LINUX_TARGET_ARCH})
     set(NE10_LINUX_TARGET_ARCH $ENV{NE10_LINUX_TARGET_ARCH})
 endif()
 if(DEFINED NE10_LINUX_TARGET_ARCH)
-    if(${NE10_LINUX_TARGET_ARCH} STREQUAL "armv7")
+    if("${NE10_LINUX_TARGET_ARCH}" STREQUAL "armv7")
         set(NE10_TARGET_ARCH "armv7")
     else()
         set(NE10_TARGET_ARCH "aarch64")
@@ -73,7 +77,7 @@ if(DEFINED NE10_LINUX_TARGET_ARCH)
 endif()
 
 if(DEFINED NE10_IOS_TARGET_ARCH)
-    if(${NE10_IOS_TARGET_ARCH} STREQUAL "armv7")
+    if("${NE10_IOS_TARGET_ARCH}" STREQUAL "armv7")
         set(NE10_TARGET_ARCH "armv7")
     else()
         set(NE10_TARGET_ARCH "aarch64")
@@ -118,7 +122,7 @@ if(ANDROID_PLATFORM)
     add_definitions(-D__ANDROID_API__=${ANDROID_API_LEVEL})
 
     # Adding cflags for armv7. Aarch64 does not need such flags.
-    if(${NE10_TARGET_ARCH} STREQUAL "armv7")
+    if("${NE10_TARGET_ARCH}" STREQUAL "armv7")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mthumb -march=armv7-a -mfloat-abi=${FLOAT_ABI} -mfpu=vfp3")
         if(NE10_ARM_HARD_FLOAT)
             # "--no-warn-mismatch" is needed for linker to suppress linker error about not all functions use VFP register to pass argument, eg.
@@ -127,10 +131,10 @@ if(ANDROID_PLATFORM)
             # There is call convension mismatch between NDK's crt*.o and ne10's object files.
             # crt*.o still uses softfp while ne10's object files use hard floating point.
             # Refer $NDK/tests/device/hard-float/jni/Android.mk for more details.
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--no-warn-mismatch")
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-warn-mismatch")
         endif()
         # Turn on asm optimization for Android on ARM v7.
-        set(NE10_ASM_OPTIMIZATION on)
+        set(NE10_ASM_OPTIMIZATION ON)
     endif()
     message("-- Loaded toolchain:
     ${CMAKE_C_COMPILER}
@@ -143,7 +147,7 @@ elseif(GNULINUX_PLATFORM)
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mthumb -march=armv7-a -mfpu=vfp3 -funsafe-math-optimizations")
       set(CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS} -mthumb -march=armv7-a -mfpu=neon")
       # Turn on asm optimization for Linux on ARM v7.
-      set(NE10_ASM_OPTIMIZATION on)
+      set(NE10_ASM_OPTIMIZATION ON)
     endif()
 elseif(IOS_PLATFORM)
     #set minimal target ios version.
@@ -153,7 +157,7 @@ elseif(IOS_PLATFORM)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -miphoneos-version-min=" ${MIN_IOS_VER})
     set(CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS} -mfpu=neon -miphoneos-version-min=" ${MIN_IOS_VER})
 
-    if(${NE10_TARGET_ARCH} STREQUAL "armv7")
+    if("${NE10_TARGET_ARCH}" STREQUAL "armv7")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp3 -arch armv7 -arch armv7s")
         set(CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS} -arch armv7 -arch armv7s")
     else()
@@ -187,10 +191,6 @@ endif()
 # Make sure we are compiling for an ARM system.
 # This is a verbose fail-fast in case we are trying to compile for non-ARM;
 # otherwise it would fail at `make` with obscure errors.
-if(GNULINUX_PLATFORM AND (NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^arm"))
+if(GNULINUX_PLATFORM AND (NOT CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch"))
     message(FATAL_ERROR "You are trying to compile for non-ARM (CMAKE_SYSTEM_PROCESSOR='${CMAKE_SYSTEM_PROCESSOR}')! see doc/building.md for cross compilation instructions.")
-endif()
-
-if(IOS_PLATFORM AND IOS_DEMO)
-    add_subdirectory(ios)
 endif()
